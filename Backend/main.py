@@ -218,10 +218,22 @@ def complete_list(list_id: int, total_cost: int):
     conn.close()
     return {"status": "finished"}
 
+@app.put('/lists/items/check/{list_id}')
+def check_list(list_id: int):
+    conn = sqlite3.connect('database.db')
+    cursor = conn.cursor()
+
+    # Просто обновляем все предметы конкретного списка
+    cursor.execute('UPDATE items SET is_bought = 1 WHERE list_id = ?', (list_id,))
+    
+    conn.commit()
+    conn.close()
+    return {"status": "checked_all"}
+
 # работа с айтемами
 
 @app.get('/items/{item_id}/list_id') # получить айди листа зная АЙДИ АЙТЕМА (привязанного к листу)
-def get_list_byitem(item_id: str):
+def get_list_byitem(item_id: int):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
 

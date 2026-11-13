@@ -1,16 +1,40 @@
 from aiogram import Dispatcher, Bot
 import asyncio
 import requests # для будущего бекенда, но пока юзлесс
-from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, FSInputFile
+from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, FSInputFile, CallbackQuery
 from aiogram.filters import Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery
+
+# ============ троттлинг (защита от спама. я просто скопировал готовый код) =============
+import time
+from aiogram import BaseMiddleware
+from aiogram.types import Message
+
+class ThrottlingMiddleware(BaseMiddleware):
+    def __init__(self, rate_limit: float = 1.0):
+        self.rate_limit = rate_limit # секунд между сообщениями
+        self.users = {}
+
+    async def __call__(self, handler, event: Message, data):
+        user_id = event.from_user.id
+        current_time = time.time()
+
+        # Если пользователь писал меньше rate_limit секунд назад — игнорируем
+        if user_id in self.users:
+            last_time = self.users[user_id]
+            if current_time - last_time < self.rate_limit:
+                return # Просто игнорируем сообщение (бот не отвечает)
+        
+        self.users[user_id] = current_time
+        return await handler(event, data)
+# ============ конец троттлинга (защита от спама) =============
 
 from config import TOKEN
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
+dp.message.middleware(ThrottlingMiddleware(rate_limit=0.5)) # включаем троттлинг. 0.5 секунды между командами
 
 # ============= Создаем состояния =============
 
@@ -124,6 +148,10 @@ async def process_name(message: Message, state: FSMContext):
     # сохраняем в память FSM название списка (для распоковки и использования в следующем обработчике)
     await state.update_data(list_name=message.text)
     list_name = message.text
+    if not list_name.strip():
+            await message.answer('<b>ошибка!</b>\nвведите <b>имя</b> списка!', parse_mode='HTML')
+            await state.clear()
+            return
     user_id = message.from_user.id
     from datetime import datetime
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M")  # "2026-11-04 14:35"
@@ -140,7 +168,7 @@ async def process_name(message: Message, state: FSMContext):
         await state.set_state(AddListStates.waiting_for_items)
         await message.answer('<b>да!</b> теперь перечислите продукты:\n— <i>первый раз желательно написать всё <b>через строчку.</b> \n— если понадобится что-то добавить то <b>нажмите соответствующую кнопку</b> или просто <b>напишите в чате</b> новый продукт/предмет.</i>', parse_mode='HTML')
     except requests.ConnectionError:
-        await message.answer('Нет ответа с базой данных. Не получилось сохранить')
+        await message.answer('нет ответа с базой данных. не получилось сохранить')
         await state.clear()
 
 # СОСТОЯНИЕ по FSP ловим ПРЕДМЕТЫ и тут же отвечаем кнопками. то есть черновик
@@ -152,6 +180,10 @@ async def process_items(message: Message, state: FSMContext):
 
     # разбиваем продукты
     goods = message.text
+    if not goods.strip():
+            await message.answer('<b>ошибка!</b>\nвведите пункты!')
+            await state.clear()
+            return
     goods_list = goods.split('\n')
 
     # достать номер id листа к которому мы прикрепим
@@ -241,15 +273,18 @@ async def callback_handler(callback, state: FSMContext):
         response = requests.get(f'http://localhost:8000/items', params={"list_id": list_id})
         items = response.json()
 
-        text = ''
-        for i, item in enumerate(items, 1):
-            status = ''
-            if item[3] == 0:
-                status = '🚫' 
-                text += f'<code>|{status}|</code> <b>{i}.</b> {item[2]}\n'
-            else:
-                status = '✅'
-                text += f'<code>|{status}|</code> <b>{i}.</b> <s>{item[2]}</s>\n'
+        if items:
+            text = ''
+            for i, item in enumerate(items, 1):
+                status = ''
+                if item[3] == 0:
+                    status = '🚫' 
+                    text += f'<code>|{status}|</code> <b>{i}.</b> {item[2]}\n'
+                else:
+                    status = '✅'
+                    text += f'<code>|{status}|</code> <b>{i}.</b> <s>{item[2]}</s>\n'
+        else:
+            text = '‼️<b>не нашлось пунктов!</b>'
 
         # кнопки подготовка
         keyboard = InlineKeyboardMarkup(
@@ -292,12 +327,60 @@ async def callback_handler(callback, state: FSMContext):
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 # по 3 кнопки в ряд
-                [InlineKeyboardButton(text=str(i+1), callback_data=f'check_item_{item[0]}') for i, item in enumerate(items)] 
+                [InlineKeyboardButton(text=str(i+1), callback_data=f'check_item_{item[0]}') for i, item in enumerate(items)],
+                [InlineKeyboardButton(text='вычеркнуть всё', callback_data=f'checkall_list_{list_id}')]
                 # так как джсон разбираем по item'у и берем фэйковый айдишник по порядку предмета, а настроящий из джсона [0]
             ]
         )
         await callback.message.answer('выбери номер пункта:', reply_markup=keyboard)
         await callback.answer()
+
+    elif action == 'checkall' and object == 'list':
+        list_id = int(parts[2])
+        user_id = callback.from_user.id
+        
+        response = requests.put(f'http://localhost:8000/lists/items/check/{list_id}')
+
+        if response.status_code == 200:
+            # Отправляем ОБНОВЛЕННЫЙ СПИСОК
+
+            # list_name
+            response = requests.get(f'http://localhost:8000/lists/by_id/{list_id}') 
+            list_name = response.json()["list_name"]
+
+            # получаем все айтемы
+            response = requests.get(f'http://localhost:8000/items', params={"list_id": list_id})
+            items = response.json()
+    
+            text = ''
+            for i, item in enumerate(items, 1):
+                status = ''
+                if item[3] == 0:
+                    status = '🚫' 
+                    text += f'<code>|{status}|</code> <b>{i}.</b> {item[2]}\n'
+                else:
+                    status = '✅'
+                    text += f'<code>|{status}|</code> <b>{i}.</b> <s>{item[2]}</s>\n'
+                    
+        
+            # кнопки подготовка
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [InlineKeyboardButton(text="закончить / обновить список", callback_data=f"complete_list_{list_id}")],
+                    
+                    [InlineKeyboardButton(text="вычеркнуть / вернуть", callback_data=f"precheck_item_{list_id}"),
+                    InlineKeyboardButton(text="редактировать", callback_data=f"edit_list_{list_id}")], 
+                    
+                    [InlineKeyboardButton(text="открыть списки", callback_data=f"open_lists_{user_id}")] # ✅
+                ]
+            )
+            await callback.message.edit_text(f'<b>список:</b> «{list_name}»\n\n{text}', parse_mode='HTML', reply_markup=keyboard)
+            await callback.answer()
+            return
+        else:
+            await callback.message.answer('это фиаско, братан.')
+            await callback.answer()
+            return
 
     elif action == 'check' and object == 'item':
         item_id = int(parts[2])
