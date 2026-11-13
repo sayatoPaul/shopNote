@@ -81,7 +81,8 @@ async def start_handler(message: Message):
 — открывает режим быстрого заполнения списка. ничего лишнего — название и написание списка. каждая покупка — новая строчка.
 
 <b>статистика:</b>
-— твой профиль. суммарная трата денег, количество покупок (одна строчка = одна покупка). в общем, интересно.
+— твой профиль. суммарная трата денег, количество покупок (одна строчка = одна покупка). в общем, интересно.\n
+<i>bot's created by Paul Sayato.</i>
 ''', reply_markup=keyboard, parse_mode='HTML')
 
 # обработка кнопок снизу (реплай кейборд, т.е. тот что снизу)
@@ -221,7 +222,7 @@ async def process_items(message: Message, state: FSMContext):
         ]
     )
     await state.update_data(list_name=list_name, edit_list_id=list_id)
-    await message.answer(f"<b>Черновик списка «{list_name}»</b>\n\n<b>Вы добавили:</b>\n{text}",
+    await message.answer(f"<b>черновик списка «{list_name}»</b>\n\n<b>вы добавили:</b>\n{text}",
                          parse_mode="HTML",
                          reply_markup=keyboard)
 
@@ -721,7 +722,8 @@ async def user_handler(message: Message):
 • всего трат: {total} ₽\n
 <b>ℹ️ информация</b>
 • присоединился/ась: {joined_at}
-• индивидуальный id: {user_id}
+• индивидуальный id: {user_id}\n
+<i>bot's created by Paul Sayato.</i>
 '''
 
     if user_photos.total_count == 0:
