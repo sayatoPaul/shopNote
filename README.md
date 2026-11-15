@@ -1,29 +1,36 @@
-# 🛒 shopNote
-
-> [!info] О проекте  
-> Телеграм-бот для быстрых списков покупок в магазин.  
-> Без лишнего — зашёл, записал, пошёл.
+<h1 align="center">🛒 shopNote</h1>
 
 <p align="center">
   <img src="cache/shopNote.png" width="400" alt="shopNote">
 </p>
 
 <p align="center">
+  <i>Телеграм-бот для быстрых списков покупок в магазин.</i><br>
+  <i>Без лишнего — зашёл, записал, пошёл.</i>
+</p>
+
+---
+
+<p align="center">
+  <b>запуск бота</b><br>
   <img src="cache/screenshot_start.png" width="320" alt="запуск бота"><br>
   <i>экран /start — приветствие и главное меню</i>
 </p>
 
 <p align="center">
+  <b>мои списки</b><br>
   <img src="cache/screenshot_lists.png" width="320" alt="мои списки"><br>
   <i>история списков: ✅ — завершён, ⏳ — в процессе</i>
 </p>
 
 <p align="center">
+  <b>открытый список</b><br>
   <img src="cache/screenshot_list.png" width="320" alt="открытый список"><br>
   <i>открытый список: вычеркнуть, отредактировать или завершить</i>
 </p>
 
 <p align="center">
+  <b>профиль</b><br>
   <img src="cache/screenshot_profile.png" width="320" alt="профиль"><br>
   <i>профиль со статистикой: списки, пункты, траты</i>
 </p>
