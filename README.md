@@ -28,7 +28,7 @@
 
 | | |
 |:---:|:---:|
-| <img src="cache/screenshot_start.png" width="260" alt="старт"> | <img src="cache/screenshot_lists.png" width="260" alt="списки"> |
+| <img src="cache/screenshot_start.png" width="260" alt="старт"> | <img src="cache/screenshot_lists.png" width="400" alt="списки"> |
 | **/start** — приветствие и меню | **история** — ✅ завершён, ⏳ в процессе |
 | <img src="cache/screenshot_list.png" width="260" alt="список"> | <img src="cache/screenshot_profile.png" width="260" alt="профиль"> |
 | **открытый список** — вычеркнуть, редактировать, завершить | **профиль** — статистика: списки, пункты, траты |
