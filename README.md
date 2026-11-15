@@ -1,12 +1,18 @@
-markdown
 # 🛒 shopNote
 
 > [!info] О проекте  
 > Телеграм-бот для быстрых списков покупок в магазин.  
 > Без лишнего — зашёл, записал, пошёл.
 
-![скриншот /start](screenshots/start.png)
-![скриншот списка](screenshots/list.png)
+![shopNote logo](cache/shopNote.png)
+
+![запуск бота](cache/screenshot_start.png)
+
+![мои списки](cache/screenshot_lists.png)
+
+![список](cache/screenshot_list.png)
+
+![профиль](cache/screenshot_profile.png)
 
 ---
 
