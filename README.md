@@ -26,6 +26,7 @@
 
 <h2 align="center">📱 Как выглядит бот</h2>
 
+| | |
 |:---:|:---:|
 | <img src="cache/screenshot_start.png" width="260" alt="старт"> | <img src="cache/screenshot_lists.png" width="260" alt="списки"> |
 | **/start** — приветствие и меню | **история** — ✅ завершён, ⏳ в процессе |
