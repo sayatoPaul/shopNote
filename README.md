@@ -4,15 +4,29 @@
 > Телеграм-бот для быстрых списков покупок в магазин.  
 > Без лишнего — зашёл, записал, пошёл.
 
-![shopNote logo](cache/shopNote.png)
+<p align="center">
+  <img src="cache/shopNote.png" width="400" alt="shopNote">
+</p>
 
-![запуск бота](cache/screenshot_start.png)
+<p align="center">
+  <img src="cache/screenshot_start.png" width="320" alt="запуск бота"><br>
+  <i>экран /start — приветствие и главное меню</i>
+</p>
 
-![мои списки](cache/screenshot_lists.png)
+<p align="center">
+  <img src="cache/screenshot_lists.png" width="320" alt="мои списки"><br>
+  <i>история списков: ✅ — завершён, ⏳ — в процессе</i>
+</p>
 
-![список](cache/screenshot_list.png)
+<p align="center">
+  <img src="cache/screenshot_list.png" width="320" alt="открытый список"><br>
+  <i>открытый список: вычеркнуть, отредактировать или завершить</i>
+</p>
 
-![профиль](cache/screenshot_profile.png)
+<p align="center">
+  <img src="cache/screenshot_profile.png" width="320" alt="профиль"><br>
+  <i>профиль со статистикой: списки, пункты, траты</i>
+</p>
 
 ---
 
