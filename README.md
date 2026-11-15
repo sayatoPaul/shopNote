@@ -1,4 +1,4 @@
-```markdown
+markdown
 # 🛒 shopNote
 
 > [!info] О проекте  
@@ -114,4 +114,3 @@ shopNote/
 ---
 
 <i>bot's created by Paul Sayato.</i>
-```
