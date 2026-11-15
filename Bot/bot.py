@@ -126,7 +126,9 @@ async def start_handler(message: Message):
     )
 
     # ответ. привествие
-    await message.answer(f'''
+    await message.answer_photo(
+        photo="https://disk.yandex.ru/i/l3dZJwCpgI-sCA",
+        caption=f'''
 <b>shopNote.</b>\n
 <blockquote>я понимаю твою боль, когда ты засоряешь свой чат «избранное» или заметки телефона списками для покупок. я здесь, чтобы решить твои проблемы.</blockquote>
 
@@ -141,7 +143,9 @@ async def start_handler(message: Message):
 <b>статистика:</b>
 — твой профиль. суммарная трата денег, количество покупок (одна строчка = одна покупка). в общем, интересно.\n
 <i>bot's created by Paul Sayato.</i>
-''', reply_markup=keyboard, parse_mode='HTML')
+''',
+        reply_markup=keyboard, 
+        parse_mode='HTML')
 
 # обработка кнопок снизу (реплай кейборд, т.е. тот что снизу)
 
@@ -688,7 +692,7 @@ async def user_handler(message: Message):
         await message.answer_photo(
             photo.file_id,
             caption=text,
-            parse_mode='HTML'
+            parse_mode='HTML',
         )
 
 # хендлеры прочие
