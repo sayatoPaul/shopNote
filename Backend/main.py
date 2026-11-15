@@ -4,6 +4,12 @@ import sqlite3
 
 app = FastAPI()
 
+# ИНФО
+# 1) Тут тоже присутсвует необходимая валидация данных, не только со стороны бота. 
+# 2) Все разделенно на отдельные части.
+
+# ========== создание таблиц ==========
+
 def init_db():
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
@@ -44,10 +50,15 @@ def init_db():
 
 init_db() # запускать каждый раз в проге
 
-# работа с юзером
+# ========== работа с юзером ==========
 
 @app.post('/users') # добавление пользователя в систему
 def add_user(telegram_id: int, joined_at: str):
+    if telegram_id <= 0: # проверка на телеграм id
+        return {"status": "error", "message": "telegram_id должен быть положительным"}
+
+    if not joined_at or not joined_at.strip(): # проверка на дату присоединения
+        return {"status": "error", "message": "дата регистрации не может быть пустой"}
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
 
@@ -126,34 +137,29 @@ def get_user_items(user_id: int):
     else:
         return []
 
-# работа с листами
+# ========== работа с листами ==========
 
 @app.post('/lists') # добавить список
 def add_list(user_id: int, name: str, created_at: str, total_cost: int):
+    if not name or not name.strip(): # проверка на название списка
+        return {"status": "error", "message": "имя списка не может быть пустым"}
+
+    if total_cost < 0: # проверка на стоимость
+        return {"status": "error", "message": "чек не может быть отрицательным"}
+    
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
 
     cursor.execute('INSERT INTO lists (user_id, name, created_at, total_cost) VALUES (?, ?, ?, ?)', (user_id, name, created_at, total_cost))
-    
     conn.commit()
+
+    new_list_id = cursor.lastrowid 
     conn.close()
 
-@app.get('/lists/by_name/{list_name}') # получить айди зная ИМЯ ЛИСТА
-def get_list(list_name: str):
-    conn = sqlite3.connect('database.db')
-    cursor = conn.cursor()
-
-    cursor.execute('SELECT id FROM lists WHERE name = ?', (list_name,))
-    list_id = cursor.fetchone()
-
-    conn.close()
-    if list_id:
-        return {"list_id": list_id[0]}
-    else:
-        return {"list_id": None}
+    return {"status": "created", "list_id": new_list_id}  
 
 @app.get('/lists/by_id/{id}') # получить имя зная АЙДИ ЛИСТА
-def get_list_name(id: str):
+def get_list_name(id: int):
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
 
@@ -209,6 +215,8 @@ def created_at_list(list_id: int):
 
 @app.put('/lists/complete/{list_id}') # завершить и добавить чек
 def complete_list(list_id: int, total_cost: int):
+    if total_cost < 0:
+        return {"status": "error", "message": "чек не может быть отрицательным"}
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
 
@@ -230,7 +238,7 @@ def check_list(list_id: int):
     conn.close()
     return {"status": "checked_all"}
 
-# работа с айтемами
+# ========== работа с айтемами ==========
 
 @app.get('/items/{item_id}/list_id') # получить айди листа зная АЙДИ АЙТЕМА (привязанного к листу)
 def get_list_byitem(item_id: int):
@@ -245,13 +253,25 @@ def get_list_byitem(item_id: int):
 
 @app.post('/items')
 def add_item(list_id: int, name: str):
+    if not name or not name.strip(): # проверка имени
+        return {"status": "error", "message": "имя предмета не может быть пустым"}
+
+    if list_id <= 0: # проверка айди
+        return {"status": "error", "message": "некорректный list_id"}
+    
     conn = sqlite3.connect('database.db')
     cursor = conn.cursor()
+
+    cursor.execute('SELECT id FROM lists WHERE id = ?', (list_id,))
+    if not cursor.fetchone():
+        conn.close()
+        return {"status": "error", "message": "список не найден"}
 
     cursor.execute('INSERT INTO items (list_id, name) VALUES (?, ?)', (list_id, name)) # is bought безмысленно тк базово там 0
 
     conn.commit()
     conn.close()
+    return {"status": "success"}
 
 @app.get('/items') # получить айтемы из списка
 def get_items(list_id: int):

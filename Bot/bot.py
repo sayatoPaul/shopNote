@@ -1,16 +1,16 @@
-from aiogram import Dispatcher, Bot
+from aiogram import Dispatcher, Bot # для работы с телеграмом
 import asyncio
-import requests # для будущего бекенда, но пока юзлесс
-from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, FSInputFile, CallbackQuery
-from aiogram.filters import Command
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.fsm.context import FSMContext
+import requests 
+from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, FSInputFile, CallbackQuery # для работы с телеграмом
+from aiogram.filters import Command # для работы с телеграмом
+from aiogram.fsm.state import State, StatesGroup # для работы с телеграмом (состояния, кнопки)
+from aiogram.fsm.context import FSMContext # для работы с телеграмом (контекст буквально для состояний)
+from datetime import datetime # импорт времени
+import time # импорт времени
+from aiogram import BaseMiddleware # для троттлинга
+from aiogram.types import Message # для троттлинга
 
 # ============ троттлинг (защита от спама. я просто скопировал готовый код) =============
-import time
-from aiogram import BaseMiddleware
-from aiogram.types import Message
-
 class ThrottlingMiddleware(BaseMiddleware):
     def __init__(self, rate_limit: float = 1.0):
         self.rate_limit = rate_limit # секунд между сообщениями
@@ -45,6 +45,65 @@ class AddListStates(StatesGroup): # короче создаем класс и о
     waiting_for_remove_item = State()
     waiting_for_check = State()
 
+# ============= ХЕЛПЕРЫ для хендлеров =============
+
+def get_list_name(list_id): # получить имя листа зная АЙДИ
+    response = requests.get(f'http://localhost:8000/lists/by_id/{list_id}')
+    data = response.json()
+    return data.get("list_name") or "без названия"
+
+def render_items(items): # получить оформление айтемов зная АЙТЕМЫ\
+    if not items:
+        return '‼️<b>не нашлось пунктов!</b>'
+    
+    text = ''
+    for x, item in enumerate(items, 1):
+        if item[3] == 0:
+            text += f'<code>|🚫|</code> <b>{x}.</b> {item[2]}\n'
+        else:
+            text += f'<code>|✅|</code> <b>{x}.</b> <s>{item[2]}</s>\n'
+    return text
+
+def render_lists(lists): # то же самое но с листами
+    if lists:
+        text = ''
+        status = ''
+        for i, list in enumerate(lists, 1):
+            if list[4] == 1:
+                status = '✅'
+            elif list[4] == 0:
+                status = '⏳'
+
+            if status == '✅':
+                text += f'<code>|{status}|</code> <b>№{i}.</b> <s>{list[2]}.</s>\n'
+            elif status == '⏳':
+                text += f'<code>|{status}|</code> <b>№{i}.</b> {list[2]}.\n'    
+        return text
+    else:
+        return None
+
+def list_keyboard(list_id, user_id): #Возвращает клавиатуру для раскрытого списка
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="закончить / обновить список", callback_data=f"complete_list_{list_id}")],
+            [InlineKeyboardButton(text="вычеркнуть / вернуть", callback_data=f"precheck_item_{list_id}"),
+             InlineKeyboardButton(text="редактировать", callback_data=f"edit_list_{list_id}")],
+            [InlineKeyboardButton(text="открыть списки", callback_data=f"open_lists_{user_id}")]
+        ]
+    )
+
+def list_keyboard_edit(list_id): #Возвращает клавиатуру для раскрытого списка
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="добавить пункт", callback_data=f'add_item_{list_id}')], # переброс уже на существующую функцию
+            
+            [InlineKeyboardButton(text="удалить пункт", callback_data=f'predelete_item_{list_id}'), # переброс на удаление
+            InlineKeyboardButton(text="стереть список", callback_data=f"delete_list_{list_id}")],
+
+            [InlineKeyboardButton(text="вернуться ко списку", callback_data=f"open_list_{list_id}")]
+        ]
+    )
+
 # ============== хендлер /start ==============
 
 @dp.message(Command('start'))
@@ -52,7 +111,6 @@ async def start_handler(message: Message):
     # добавления юзера в БД
 
     user_id = message.from_user.id
-    from datetime import datetime
     joined_at = datetime.now().strftime("%Y-%m-%d")
 
     response = requests.post('http://localhost:8000/users', params={"telegram_id": user_id, "joined_at": joined_at})
@@ -98,20 +156,9 @@ async def all_lists_handler(message: Message):
 def get_lists_markup(user_id): # функция выполнения типо показ списков
     response = requests.get(f'http://localhost:8000/users/{user_id}/lists')
     lists = response.json()
+    text = render_lists(lists)
 
-    if lists:
-        text = ''
-        status = ''
-        for i, list in enumerate(lists, 1):
-            if list[4] == 1:
-                status = '✅'
-            elif list[4] == 0:
-                status = '⏳'
-
-            if status == '✅':
-                text += f'<code>|{status}|</code> <b>№{i}.</b> <s>{list[2]}.</s>\n'
-            elif status == '⏳':
-                text += f'<code>|{status}|</code> <b>№{i}.</b> {list[2]}.\n'
+    if text:
 
         # создаем кнопочки если все ок базару нет
         keyboard = InlineKeyboardMarkup(
@@ -150,9 +197,9 @@ async def process_name(message: Message, state: FSMContext):
     await state.update_data(list_name=message.text)
     list_name = message.text
     if not list_name.strip():
-            await message.answer('<b>ошибка!</b>\nвведите <b>имя</b> списка!', parse_mode='HTML')
-            await state.clear()
-            return
+        await message.answer('<b>ошибка!</b>\nвведите <b>имя</b> списка!', parse_mode='HTML')
+        await state.clear()
+        return
     user_id = message.from_user.id
     from datetime import datetime
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M")  # "2026-11-04 14:35"
@@ -165,11 +212,18 @@ async def process_name(message: Message, state: FSMContext):
                 "created_at": created_at,
                 "total_cost": 0
             })  
+
+        data = response.json()  # ← получаем ответ
+        list_id = data.get('list_id')  # ← достаём id
+    
+        await state.update_data(list_id=list_id)  # ← сохраняем в FSM
+        
         # включаем состояние ожидания ПРЕДМЕТОВ
         await state.set_state(AddListStates.waiting_for_items)
+
         await message.answer('<b>да!</b> теперь перечислите продукты:\n— <i>первый раз желательно написать всё <b>через строчку.</b> \n— если понадобится что-то добавить то <b>нажмите соответствующую кнопку</b> или просто <b>напишите в чате</b> новый продукт/предмет.</i>', parse_mode='HTML')
     except requests.ConnectionError:
-        await message.answer('нет ответа с базой данных. не получилось сохранить')
+        await message.answer('нет ответа от сервера. не получилось сохранить')
         await state.clear()
 
 # СОСТОЯНИЕ по FSP ловим ПРЕДМЕТЫ и тут же отвечаем кнопками. то есть черновик
@@ -186,32 +240,26 @@ async def process_items(message: Message, state: FSMContext):
             await state.clear()
             return
     goods_list = goods.split('\n')
-
+    
     # достать номер id листа к которому мы прикрепим
-    response = requests.get(f'http://localhost:8000/lists/by_name/{list_name}') # ✅
-    list_id = response.json()["list_id"]
+    data = await state.get_data()
+    list_id = data.get('list_id')
     await state.update_data(edit_list_id=list_id)  # на будущее отправляем в данные
     if not list_id:
-        await message.answer('Ошибка. Список не найден!')
+        await message.answer('ошибка. список не найден!')
         await state.clear()
         return
 
     # сохраняем в БД
     for item in goods_list:
-        response = requests.post(f'http://localhost:8000/items', params={"list_id": list_id, "name": item})
+        if item.strip():  # ← добавил эту проверку. проверяет чтобы не было пробелов
+            response = requests.post('http://localhost:8000/items', params={"list_id": list_id, "name": item.strip()})
 
     response = requests.get(f'http://localhost:8000/items', params={"list_id": list_id})
     items = response.json()
 
     # ответ
-    text = ''
-    for i, item in enumerate(items, 1):
-        status = ''
-        if item[3] == 0:
-            status = '🚫' 
-        else:
-            status = '✅'
-        text += f'<code>|{status}|</code> <b>№{i}.</b> {item[2]}.\n'
+    text = render_items(items)
 
     # кнопки подготовка
     keyboard = InlineKeyboardMarkup(
@@ -268,36 +316,15 @@ async def callback_handler(callback, state: FSMContext):
         list_id = int(parts[2])
         user_id = callback.from_user.id  # ✅ Получаем ID юзера
         # получаем имя списка
-        response = requests.get(f'http://localhost:8000/lists/by_id/{list_id}') 
-        list_name = response.json()["list_name"]
+        list_name = get_list_name(list_id)
         # получаем все айтемы
         response = requests.get(f'http://localhost:8000/items', params={"list_id": list_id})
         items = response.json()
 
-        if items:
-            text = ''
-            for i, item in enumerate(items, 1):
-                status = ''
-                if item[3] == 0:
-                    status = '🚫' 
-                    text += f'<code>|{status}|</code> <b>{i}.</b> {item[2]}\n'
-                else:
-                    status = '✅'
-                    text += f'<code>|{status}|</code> <b>{i}.</b> <s>{item[2]}</s>\n'
-        else:
-            text = '‼️<b>не нашлось пунктов!</b>'
+        text = render_items(items)
 
         # кнопки подготовка
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="закончить / обновить список", callback_data=f"complete_list_{list_id}")],
-
-                [InlineKeyboardButton(text="вычеркнуть / вернуть", callback_data=f"precheck_item_{list_id}"),
-                InlineKeyboardButton(text="редактировать", callback_data=f"edit_list_{list_id}")],
-                
-                [InlineKeyboardButton(text="открыть списки", callback_data=f"open_lists_{user_id}")]
-            ]
-        )
+        keyboard = list_keyboard(list_id, user_id)
 
         # ✅ СОХРАНЯЕМ В FSM
         await state.update_data(edit_list_id=list_id, list_name=list_name)
@@ -353,28 +380,11 @@ async def callback_handler(callback, state: FSMContext):
             response = requests.get(f'http://localhost:8000/items', params={"list_id": list_id})
             items = response.json()
     
-            text = ''
-            for i, item in enumerate(items, 1):
-                status = ''
-                if item[3] == 0:
-                    status = '🚫' 
-                    text += f'<code>|{status}|</code> <b>{i}.</b> {item[2]}\n'
-                else:
-                    status = '✅'
-                    text += f'<code>|{status}|</code> <b>{i}.</b> <s>{item[2]}</s>\n'
-                    
+            text = render_items(items)
         
             # кнопки подготовка
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [InlineKeyboardButton(text="закончить / обновить список", callback_data=f"complete_list_{list_id}")],
-                    
-                    [InlineKeyboardButton(text="вычеркнуть / вернуть", callback_data=f"precheck_item_{list_id}"),
-                    InlineKeyboardButton(text="редактировать", callback_data=f"edit_list_{list_id}")], 
-                    
-                    [InlineKeyboardButton(text="открыть списки", callback_data=f"open_lists_{user_id}")] # ✅
-                ]
-            )
+            keyboard = list_keyboard(list_id, user_id)
+
             await callback.message.edit_text(f'<b>список:</b> «{list_name}»\n\n{text}', parse_mode='HTML', reply_markup=keyboard)
             await callback.answer()
             return
@@ -396,35 +406,17 @@ async def callback_handler(callback, state: FSMContext):
             list_id = response.json()["list_id"]
 
             # list_name
-            response = requests.get(f'http://localhost:8000/lists/by_id/{list_id}') 
-            list_name = response.json()["list_name"]
+            list_name = get_list_name(list_id)
 
             # получаем все айтемы
             response = requests.get(f'http://localhost:8000/items', params={"list_id": list_id})
             items = response.json()
-    
-            text = ''
-            for i, item in enumerate(items, 1):
-                status = ''
-                if item[3] == 0:
-                    status = '🚫' 
-                    text += f'<code>|{status}|</code> <b>{i}.</b> {item[2]}\n'
-                else:
-                    status = '✅'
-                    text += f'<code>|{status}|</code> <b>{i}.</b> <s>{item[2]}</s>\n'
-                    
+
+            text = render_items(items)
         
             # кнопки подготовка
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [InlineKeyboardButton(text="закончить / обновить список", callback_data=f"complete_list_{list_id}")],
-                    
-                    [InlineKeyboardButton(text="вычеркнуть / вернуть", callback_data=f"precheck_item_{list_id}"),
-                    InlineKeyboardButton(text="редактировать", callback_data=f"edit_list_{list_id}")], 
-                    
-                    [InlineKeyboardButton(text="открыть списки", callback_data=f"open_lists_{user_id}")] # ✅
-                ]
-            )
+            keyboard = list_keyboard(list_id, user_id)
+
             await callback.message.edit_text(f'<b>список:</b> «{list_name}»\n\n{text}', parse_mode='HTML', reply_markup=keyboard)
             await callback.answer()
             return
@@ -435,16 +427,7 @@ async def callback_handler(callback, state: FSMContext):
 
     elif action == 'edit' and object == 'list':
         list_id = int(parts[2])
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="добавить пункт", callback_data=f'add_item_{list_id}')], # переброс уже на существующую функцию
-                
-                [InlineKeyboardButton(text="удалить пункт", callback_data=f'predelete_item_{list_id}'), # переброс на удаление
-                InlineKeyboardButton(text="стереть список", callback_data=f"delete_list_{list_id}")],
-
-                [InlineKeyboardButton(text="вернуться ко списку", callback_data=f"open_list_{list_id}")]
-            ]
-        )
+        keyboard = list_keyboard_edit(list_id)
 
         # list_name
         response = requests.get(f'http://localhost:8000/lists/by_id/{list_id}') 
@@ -454,15 +437,7 @@ async def callback_handler(callback, state: FSMContext):
         response = requests.get(f'http://localhost:8000/items', params={"list_id": list_id})
         items = response.json()
 
-        text = ''
-        for i, item in enumerate(items, 1):
-            status = ''
-            if item[3] == 0:
-                status = '🚫' 
-                text += f'<code>|{status}|</code> <b>{i}.</b> {item[2]}\n'
-            else:
-                status = '✅'
-                text += f'<code>|{status}|</code> <b>{i}.</b> <s>{item[2]}</s>\n'
+        text = render_items(items)
 
         # ✅ СОХРАНЯЕМ В FSM
         await state.update_data(edit_list_id=list_id, list_name=list_name)
@@ -576,26 +551,12 @@ async def callback_handler(callback, state: FSMContext):
         # обновляем че есть теперь в задачах    
         response = requests.get('http://localhost:8000/items', params={'list_id': list_id})
         items = response.json()
+
         # готовим список задач
-        text = ''
-        for i, item in enumerate(items, 1):
-            status = ''
-            if item[3] == 0:
-                status = '🚫' 
-            else:
-                status = '✅'
-            text += f'<code>|{status}|</code> <b>{i}.</b> {item[2]}\n'
+        text = render_items(items)
     
         # кнопки подготовка
-        keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="добавить предмет", callback_data=f"add_item_{list_id}"),
-                InlineKeyboardButton(text="удалить предмет", callback_data=f"predelete_item_{list_id}"),
-                InlineKeyboardButton(text="стереть список", callback_data=f"delete_list_{list_id}")
-            ],
-            [InlineKeyboardButton(text="вернуться ко списку", callback_data=f"open_list_{list_id}")]
-        ]
-        )
+        keyboard = list_keyboard_edit(list_id)
         # шлем текст
         await callback.message.edit_text(f"<b>✏️ редакция списка: «{list_name}»</b>\n\n<b>Пункты:</b>\n\n{text}", parse_mode="HTML", reply_markup=keyboard)
         await callback.answer()     
@@ -605,11 +566,16 @@ async def get_check(message: Message, state: FSMContext):
     data = await state.get_data()
     user_id = message.from_user.id
     list_id = data.get('edit_list_id')
+
     try:
         check = int(message.text)
     except:
         await message.answer('цифры писать надо!')
         await state.clear()
+        return
+
+    if check < 0:
+        await message.answer('чек не может быть <b>отрицательным</b>.\nвведи положительное число или 0:', parse_mode='HTML')
         return
 
     # завершаем
@@ -650,6 +616,10 @@ async def process_item(message: Message, state: FSMContext):
     list_id = data.get('edit_list_id') # так как мы сохраняли edit_list_id
     list_name = data.get('list_name')
     new_item = message.text
+    if not new_item or not new_item.strip(): # проверка что он не пуст / на пробел
+        await message.answer('ошибка! название предмета не может быть пустым.')
+        return
+    new_item = new_item.strip()
 
     response = requests.post('http://localhost:8000/items', params={'list_id': list_id, 'name': new_item})
 
@@ -657,24 +627,10 @@ async def process_item(message: Message, state: FSMContext):
 
     response = requests.get('http://localhost:8000/items', params={'list_id': list_id})
     items = response.json()
-    text = ''
-    for i, item in enumerate(items, 1):
-        status = ''
-        if item[3] == 0:
-            status = '🚫' 
-        else:
-            status = '✅'
-        text += f'<code>|{status}|</code> <b>{i}.</b> {item[2]}\n'
+    text = render_items(items)
 
     # кнопки подготовка
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="добавить предмет", callback_data=f"add_item_{list_id}")],
-            [InlineKeyboardButton(text="удалить предмет", callback_data=f"predelete_item_{list_id}")],
-            [InlineKeyboardButton(text="стереть список", callback_data=f"delete_list_{list_id}")],
-            [InlineKeyboardButton(text="вернуться ко списку", callback_data=f"open_list_{list_id}")]
-        ]
-    )
+    keyboard = list_keyboard_edit(list_id)
 
     await message.answer(f"<b>✏️ редакция списка: «{list_name}»</b>\n\n<b>ваши пункты:</b>\n{text}", parse_mode="HTML", reply_markup=keyboard)
     await state.clear()  # ✅ Ты очищаешь
@@ -685,22 +641,21 @@ async def process_item(message: Message, state: FSMContext):
 async def user_handler(message: Message):
     user_id = message.from_user.id
     user_photos = await bot.get_user_profile_photos(user_id)
-    joined_at = "неизвестно"
 
     try:
         response = requests.get(f'http://localhost:8000/users/{user_id}')
         if response.status_code == 200:
             data = response.json() # это словарь {"data": [id, дата]}
             joined_at = data["data"][1] # ✅ Достаем список, затем второй элемент (дату)
-    except requests.ConnectionError:
-        pass
 
-    response = requests.get(f'http://localhost:8000/users/{user_id}/lists')
-    lists = response.json()
+        response = requests.get(f'http://localhost:8000/users/{user_id}/lists')
+        lists = response.json()
 
-
-    response = requests.get(f'http://localhost:8000/users/{user_id}/items')
-    items = response.json()
+        response = requests.get(f'http://localhost:8000/users/{user_id}/items')
+        items = response.json()
+    except:
+        await message.answer('‼️ <b>бэкенд недоступен</b>, попробуй позже.', parse_mode='HTML')
+        return
 
     succes_items = 0
     for item in items:
@@ -747,7 +702,7 @@ async def get_users_handler(message: Message):
         data = response.json()  # ✅ превращаем в список
         await message.answer(str(data))  # ✅ превращаем в строку
     except requests.ConnectionError:
-        await message.answer("Сервер недоступен.")
+        await message.answer("сервер недоступен.")
 
 
 # ЗАПУСК БОТА
