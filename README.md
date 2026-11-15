@@ -5,34 +5,8 @@
 </p>
 
 <p align="center">
-  <i>Телеграм-бот для быстрых списков покупок в магазин.</i><br>
-  <i>Без лишнего — зашёл, записал, пошёл.</i>
-</p>
-
----
-
-<p align="center">
-  <b>запуск бота</b><br>
-  <img src="cache/screenshot_start.png" width="320" alt="запуск бота"><br>
-  <i>экран /start — приветствие и главное меню</i>
-</p>
-
-<p align="center">
-  <b>мои списки</b><br>
-  <img src="cache/screenshot_lists.png" width="320" alt="мои списки"><br>
-  <i>история списков: ✅ — завершён, ⏳ — в процессе</i>
-</p>
-
-<p align="center">
-  <b>открытый список</b><br>
-  <img src="cache/screenshot_list.png" width="320" alt="открытый список"><br>
-  <i>открытый список: вычеркнуть, отредактировать или завершить</i>
-</p>
-
-<p align="center">
-  <b>профиль</b><br>
-  <img src="cache/screenshot_profile.png" width="320" alt="профиль"><br>
-  <i>профиль со статистикой: списки, пункты, траты</i>
+  <i>телеграм-бот для быстрых списков покупок в магазин.</i><br>
+  <i>без лишнего — зашёл, записал, пошёл.</i>
 </p>
 
 ---
@@ -47,6 +21,34 @@
 
 **В чём разница от заметок или избранного?**  
 Статистика и оформление.
+
+---
+
+## 📱 Как выглядит бот
+
+<p align="center">
+  <img src="cache/screenshot_start.png" width="300" alt="запуск бота"><br>
+  <b>экран /start</b><br>
+  <i>приветствие и главное меню</i>
+</p>
+
+<p align="center">
+  <img src="cache/screenshot_lists.png" width="300" alt="мои списки"><br>
+  <b>история списков</b><br>
+  <i>✅ — завершён, ⏳ — в процессе</i>
+</p>
+
+<p align="center">
+  <img src="cache/screenshot_list.png" width="300" alt="открытый список"><br>
+  <b>открытый список</b><br>
+  <i>вычеркнуть, отредактировать или завершить</i>
+</p>
+
+<p align="center">
+  <img src="cache/screenshot_profile.png" width="300" alt="профиль"><br>
+  <b>профиль</b><br>
+  <i>статистика: списки, пункты, траты</i>
+</p>
 
 ---
 
