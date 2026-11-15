@@ -26,29 +26,12 @@
 
 ## 📱 Как выглядит бот
 
-<p align="center">
-  <img src="cache/screenshot_start.png" width="300" alt="запуск бота"><br>
-  <b>экран /start</b><br>
-  <i>приветствие и главное меню</i>
-</p>
-
-<p align="center">
-  <img src="cache/screenshot_lists.png" width="300" alt="мои списки"><br>
-  <b>история списков</b><br>
-  <i>✅ — завершён, ⏳ — в процессе</i>
-</p>
-
-<p align="center">
-  <img src="cache/screenshot_list.png" width="300" alt="открытый список"><br>
-  <b>открытый список</b><br>
-  <i>вычеркнуть, отредактировать или завершить</i>
-</p>
-
-<p align="center">
-  <img src="cache/screenshot_profile.png" width="300" alt="профиль"><br>
-  <b>профиль</b><br>
-  <i>статистика: списки, пункты, траты</i>
-</p>
+| | |
+|:---:|:---:|
+| <img src="cache/screenshot_start.png" width="260" alt="старт"> | <img src="cache/screenshot_lists.png" width="260" alt="списки"> |
+| **/start** — приветствие и меню | **история** — ✅ завершён, ⏳ в процессе |
+| <img src="cache/screenshot_list.png" width="260" alt="список"> | <img src="cache/screenshot_profile.png" width="260" alt="профиль"> |
+| **открытый список** — вычеркнуть, редактировать, завершить | **профиль** — статистика: списки, пункты, траты |
 
 ---
 
