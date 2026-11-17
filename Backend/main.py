@@ -1,6 +1,19 @@
 # это бекенд
 from fastapi import FastAPI, HTTPException
 import sqlite3
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Настройки берутся из .env локально и из переменных Amvera в облаке.
+PROJECT_ROOT = Path(__file__).resolve().parents[1] # поднимаемся от файла на ступень выше
+load_dotenv(PROJECT_ROOT / '.env') # как поднялись к .env путем поднятия (проджект рут) читаем файл в котором токены и тп
+
+# Локально база рядом с этим файлом; в Amvera DATABASE_PATH задаётся как /data/database.db.
+DB_PATH = os.getenv(
+    'DATABASE_PATH', # либо берем заданный параметр от облака (переменная)
+    str(Path(__file__).resolve().with_name('database.db')) # в ином случае создаем / берем файл рядом с main.py
+) 
 
 app = FastAPI()
 
@@ -8,10 +21,11 @@ app = FastAPI()
 # 1) Тут тоже присутсвует необходимая валидация данных, не только со стороны бота. 
 # 2) Все разделенно на отдельные части.
 
-# ========== создание таблиц ==========
+# ========== создание таблиц (подгрузка для сервера еще)==========
 
 def init_db():
-    conn = sqlite3.connect('database.db')
+    
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     # таблица всех юзеров
@@ -59,7 +73,7 @@ def add_user(telegram_id: int, joined_at: str):
 
     if not joined_at or not joined_at.strip(): # проверка на дату присоединения
         return {"status": "error", "message": "дата регистрации не может быть пустой"}
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     # проверка есть ли телеграм айди уже или не
@@ -77,7 +91,7 @@ def add_user(telegram_id: int, joined_at: str):
 
 @app.get('/users/{telegram_id}') # получить инфу о юзере
 def get_user(telegram_id: int):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute('SELECT * FROM users WHERE telegram_id = ?', (telegram_id,))
@@ -91,7 +105,7 @@ def get_user(telegram_id: int):
 
 @app.get('/users')
 def get_users():
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute('SELECT * FROM users')
@@ -103,7 +117,7 @@ def get_users():
 
 @app.get('/users/{user_id}/lists') # получить все списки зная АЙДИ ЮЗЕРА
 def get_lists(user_id: int):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute('SELECT * FROM lists WHERE user_id = ?', (user_id,))
@@ -117,7 +131,7 @@ def get_lists(user_id: int):
 
 @app.get('/users/{user_id}/items') # получить все айтемы зная АЙДИ ЮЗЕРА
 def get_user_items(user_id: int):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     # 1. Склеиваем (JOIN) колонку list_id в items с колонкой id в lists
@@ -147,7 +161,7 @@ def add_list(user_id: int, name: str, created_at: str, total_cost: int):
     if total_cost < 0: # проверка на стоимость
         return {"status": "error", "message": "чек не может быть отрицательным"}
     
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute('INSERT INTO lists (user_id, name, created_at, total_cost) VALUES (?, ?, ?, ?)', (user_id, name, created_at, total_cost))
@@ -160,7 +174,7 @@ def add_list(user_id: int, name: str, created_at: str, total_cost: int):
 
 @app.get('/lists/by_id/{id}') # получить имя зная АЙДИ ЛИСТА
 def get_list_name(id: int):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute('SELECT name FROM lists WHERE id = ?', (id,))
@@ -174,7 +188,7 @@ def get_list_name(id: int):
 
 @app.get('/lists/user_id/{list_id}') # получить юзер айди зная лист
 def get_user_id(list_id: int):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute('SELECT user_id FROM lists WHERE id = ?', (list_id,))
@@ -188,7 +202,7 @@ def get_user_id(list_id: int):
 
 @app.delete('/lists/{list_id}') # удалить
 def delete_list(list_id: int):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute('DELETE FROM items WHERE list_id = ?', (list_id,))
@@ -200,7 +214,7 @@ def delete_list(list_id: int):
 
 @app.get('/lists/{list_id}/created_at') # взять дату создания
 def created_at_list(list_id: int):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute('SELECT created_at FROM lists WHERE id = ?', (list_id,))
@@ -217,7 +231,7 @@ def created_at_list(list_id: int):
 def complete_list(list_id: int, total_cost: int):
     if total_cost < 0:
         return {"status": "error", "message": "чек не может быть отрицательным"}
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute('UPDATE lists SET status = 1, total_cost = ? WHERE id = ?', (total_cost, list_id))
@@ -228,7 +242,7 @@ def complete_list(list_id: int, total_cost: int):
 
 @app.put('/lists/items/check/{list_id}')
 def check_list(list_id: int):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     # Просто обновляем все предметы конкретного списка
@@ -242,7 +256,7 @@ def check_list(list_id: int):
 
 @app.get('/items/{item_id}/list_id') # получить айди листа зная АЙДИ АЙТЕМА (привязанного к листу)
 def get_list_byitem(item_id: int):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute('SELECT list_id FROM items WHERE id = ?', (item_id,))
@@ -259,7 +273,7 @@ def add_item(list_id: int, name: str):
     if list_id <= 0: # проверка айди
         return {"status": "error", "message": "некорректный list_id"}
     
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute('SELECT id FROM lists WHERE id = ?', (list_id,))
@@ -275,7 +289,7 @@ def add_item(list_id: int, name: str):
 
 @app.get('/items') # получить айтемы из списка
 def get_items(list_id: int):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute('SELECT * FROM items WHERE list_id = ?', (list_id,))
@@ -289,7 +303,7 @@ def get_items(list_id: int):
 
 @app.delete('/items/{item_id}') # удалить предмет
 def del_item(item_id: int):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute('DELETE FROM items WHERE id = ?', (item_id,))  # ✅
@@ -300,7 +314,7 @@ def del_item(item_id: int):
 
 @app.put('/item/check/{item_id}') # меняем значаение is_bought
 def check_item(item_id: int):
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute('SELECT is_bought FROM items WHERE id = ?', (item_id,))

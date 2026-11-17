@@ -1,5 +1,6 @@
 from aiogram import Dispatcher, Bot # для работы с телеграмом
 import asyncio
+from pathlib import Path
 import requests 
 from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, FSInputFile, CallbackQuery # для работы с телеграмом
 from aiogram.filters import Command # для работы с телеграмом
@@ -30,7 +31,7 @@ class ThrottlingMiddleware(BaseMiddleware):
         return await handler(event, data)
 # ============ конец троттлинга (защита от спама) =============
 
-from config import TOKEN
+from config import TOKEN, API_URL # получаем токен и апи_урл от конфига (который в свою очередь принимает у .env)
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -48,7 +49,7 @@ class AddListStates(StatesGroup): # короче создаем класс и о
 # ============= ХЕЛПЕРЫ для хендлеров =============
 
 def get_list_name(list_id): # получить имя листа зная АЙДИ
-    response = requests.get(f'http://localhost:8000/lists/by_id/{list_id}')
+    response = requests.get(f'{API_URL}/lists/by_id/{list_id}')
     data = response.json()
     return data.get("list_name") or "без названия"
 
@@ -113,7 +114,7 @@ async def start_handler(message: Message):
     user_id = message.from_user.id
     joined_at = datetime.now().strftime("%Y-%m-%d")
 
-    response = requests.post('http://localhost:8000/users', params={"telegram_id": user_id, "joined_at": joined_at})
+    response = requests.post(f'{API_URL}/users', params={"telegram_id": user_id, "joined_at": joined_at})
 
     # вывод кнопок снизу. реплайкейборд
     keyboard = ReplyKeyboardMarkup(
@@ -127,7 +128,7 @@ async def start_handler(message: Message):
 
     # ответ. привествие
     await message.answer_photo(
-        photo="https://disk.yandex.ru/i/l3dZJwCpgI-sCA",
+        photo=FSInputFile(Path(__file__).with_name("shopNote.png")),
         caption=f'''
 <b>shopNote.</b>\n
 <blockquote>я понимаю твою боль, когда ты засоряешь свой чат «избранное» или заметки телефона списками для покупок. я здесь, чтобы решить твои проблемы.</blockquote>
@@ -158,7 +159,7 @@ async def all_lists_handler(message: Message):
     await message.answer(text, parse_mode='HTML', reply_markup=keyboard)
 
 def get_lists_markup(user_id): # функция выполнения типо показ списков
-    response = requests.get(f'http://localhost:8000/users/{user_id}/lists')
+    response = requests.get(f'{API_URL}/users/{user_id}/lists')
     lists = response.json()
     text = render_lists(lists)
 
@@ -209,7 +210,7 @@ async def process_name(message: Message, state: FSMContext):
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M")  # "2026-11-04 14:35"
 
     try:
-        response = requests.post(f'http://localhost:8000/lists',
+        response = requests.post(f'{API_URL}/lists',
             params={
                 'user_id': user_id,
                 "name": list_name,
@@ -257,9 +258,9 @@ async def process_items(message: Message, state: FSMContext):
     # сохраняем в БД
     for item in goods_list:
         if item.strip():  # ← добавил эту проверку. проверяет чтобы не было пробелов
-            response = requests.post('http://localhost:8000/items', params={"list_id": list_id, "name": item.strip()})
+            response = requests.post(f'{API_URL}/items', params={"list_id": list_id, "name": item.strip()})
 
-    response = requests.get(f'http://localhost:8000/items', params={"list_id": list_id})
+    response = requests.get(f'{API_URL}/items', params={"list_id": list_id})
     items = response.json()
 
     # ответ
@@ -304,7 +305,7 @@ async def callback_handler(callback, state: FSMContext):
     elif action == 'preopen' and object == 'list': # open_list_{user_id}
         user_id = int(parts[2])
             # получаем все листы
-        response = requests.get(f'http://localhost:8000/users/{user_id}/lists')
+        response = requests.get(f'{API_URL}/users/{user_id}/lists')
         lists = response.json()
 
         keyboard = InlineKeyboardMarkup(
@@ -322,7 +323,7 @@ async def callback_handler(callback, state: FSMContext):
         # получаем имя списка
         list_name = get_list_name(list_id)
         # получаем все айтемы
-        response = requests.get(f'http://localhost:8000/items', params={"list_id": list_id})
+        response = requests.get(f'{API_URL}/items', params={"list_id": list_id})
         items = response.json()
 
         text = render_items(items)
@@ -347,7 +348,7 @@ async def callback_handler(callback, state: FSMContext):
     elif action == 'precheck' and object == 'item':
         list_id = int(parts[2])
         # получаем все продукты
-        response = requests.get(f'http://localhost:8000/items', params={"list_id": list_id})
+        response = requests.get(f'{API_URL}/items', params={"list_id": list_id})
         items = response.json()
 
         if not items:
@@ -371,17 +372,17 @@ async def callback_handler(callback, state: FSMContext):
         list_id = int(parts[2])
         user_id = callback.from_user.id
         
-        response = requests.put(f'http://localhost:8000/lists/items/check/{list_id}')
+        response = requests.put(f'{API_URL}/lists/items/check/{list_id}')
 
         if response.status_code == 200:
             # Отправляем ОБНОВЛЕННЫЙ СПИСОК
 
             # list_name
-            response = requests.get(f'http://localhost:8000/lists/by_id/{list_id}') 
+            response = requests.get(f'{API_URL}/lists/by_id/{list_id}') 
             list_name = response.json()["list_name"]
 
             # получаем все айтемы
-            response = requests.get(f'http://localhost:8000/items', params={"list_id": list_id})
+            response = requests.get(f'{API_URL}/items', params={"list_id": list_id})
             items = response.json()
     
             text = render_items(items)
@@ -400,20 +401,20 @@ async def callback_handler(callback, state: FSMContext):
     elif action == 'check' and object == 'item':
         item_id = int(parts[2])
         user_id = callback.from_user.id  # ✅ Получаем ID
-        response = requests.put(f'http://localhost:8000/item/check/{item_id}', params={"item_id": item_id})
+        response = requests.put(f'{API_URL}/item/check/{item_id}', params={"item_id": item_id})
 
         if response.status_code == 200:
             # Отправляем ОБНОВЛЕННЫЙ СПИСОК
 
             # list_id
-            response = requests.get(f'http://localhost:8000/items/{item_id}/list_id')
+            response = requests.get(f'{API_URL}/items/{item_id}/list_id')
             list_id = response.json()["list_id"]
 
             # list_name
             list_name = get_list_name(list_id)
 
             # получаем все айтемы
-            response = requests.get(f'http://localhost:8000/items', params={"list_id": list_id})
+            response = requests.get(f'{API_URL}/items', params={"list_id": list_id})
             items = response.json()
 
             text = render_items(items)
@@ -434,11 +435,11 @@ async def callback_handler(callback, state: FSMContext):
         keyboard = list_keyboard_edit(list_id)
 
         # list_name
-        response = requests.get(f'http://localhost:8000/lists/by_id/{list_id}') 
+        response = requests.get(f'{API_URL}/lists/by_id/{list_id}') 
         list_name = response.json()["list_name"]
 
         # получаем все айтемы
-        response = requests.get(f'http://localhost:8000/items', params={"list_id": list_id})
+        response = requests.get(f'{API_URL}/items', params={"list_id": list_id})
         items = response.json()
 
         text = render_items(items)
@@ -453,7 +454,7 @@ async def callback_handler(callback, state: FSMContext):
     elif action == 'delete' and object == 'list':
         list_id = int(parts[2])
 
-        response = requests.get(f'http://localhost:8000/lists/user_id/{list_id}')
+        response = requests.get(f'{API_URL}/lists/user_id/{list_id}')
         user_id = response.json()["user_id"]
 
         keyboard = InlineKeyboardMarkup(
@@ -462,7 +463,7 @@ async def callback_handler(callback, state: FSMContext):
             ]
         )
 
-        response = requests.delete(f'http://localhost:8000/lists/{list_id}')
+        response = requests.delete(f'{API_URL}/lists/{list_id}')
 
         if response.status_code == 200:
             await callback.message.edit_text('🗑 <b>cписок полностью удален!</b>', parse_mode='HTML', reply_markup=keyboard)
@@ -514,14 +515,14 @@ async def callback_handler(callback, state: FSMContext):
         list_id = int(parts[2])
         
         # ✅ 1. Получаем имя списка с бэкенда
-        response = requests.get(f'http://localhost:8000/lists/by_id/{list_id}') 
+        response = requests.get(f'{API_URL}/lists/by_id/{list_id}') 
         list_name = response.json()["list_name"]
     
         # ✅ 2. Сохраняем И ID, И имя в FSM
         await state.update_data(edit_list_id=list_id, list_name=list_name) 
 
         # получаем все продукты
-        response = requests.get(f'http://localhost:8000/items', params={"list_id": list_id})
+        response = requests.get(f'{API_URL}/items', params={"list_id": list_id})
         items = response.json()
 
         if not items:
@@ -543,7 +544,7 @@ async def callback_handler(callback, state: FSMContext):
     # в списке выбераем пункт. Удаляем. Шлем обновленный список
     elif action == 'delete' and object == 'item':
         item_id = int(parts[2])
-        response = requests.delete(f'http://localhost:8000/items/{item_id}')
+        response = requests.delete(f'{API_URL}/items/{item_id}')
 
         if response.status_code != 200:
             await callback.message.answer(f'<b>error:</b> {response.status_code}\n — это фиаско, братан. ', parse_mode='HTML')
@@ -553,7 +554,7 @@ async def callback_handler(callback, state: FSMContext):
         list_name = data.get('list_name')
 
         # обновляем че есть теперь в задачах    
-        response = requests.get('http://localhost:8000/items', params={'list_id': list_id})
+        response = requests.get(f'{API_URL}/items', params={'list_id': list_id})
         items = response.json()
 
         # готовим список задач
@@ -583,14 +584,14 @@ async def get_check(message: Message, state: FSMContext):
         return
 
     # завершаем
-    response = requests.put(f'http://localhost:8000/lists/complete/{list_id}', params={'total_cost': check})
+    response = requests.put(f'{API_URL}/lists/complete/{list_id}', params={'total_cost': check})
 
     # кол-во предметов
-    response = requests.get('http://localhost:8000/items', params={'list_id': list_id})
+    response = requests.get(f'{API_URL}/items', params={'list_id': list_id})
     items = response.json()
 
     # дата
-    response = requests.get(f'http://localhost:8000/lists/{list_id}/created_at')
+    response = requests.get(f'{API_URL}/lists/{list_id}/created_at')
     created_at = response.json()["created_at"]
 
     keyboard = InlineKeyboardMarkup(
@@ -625,11 +626,11 @@ async def process_item(message: Message, state: FSMContext):
         return
     new_item = new_item.strip()
 
-    response = requests.post('http://localhost:8000/items', params={'list_id': list_id, 'name': new_item})
+    response = requests.post(f'{API_URL}/items', params={'list_id': list_id, 'name': new_item})
 
     await message.answer(f'пункт «{new_item}» добавлен!')
 
-    response = requests.get('http://localhost:8000/items', params={'list_id': list_id})
+    response = requests.get(f'{API_URL}/items', params={'list_id': list_id})
     items = response.json()
     text = render_items(items)
 
@@ -647,15 +648,15 @@ async def user_handler(message: Message):
     user_photos = await bot.get_user_profile_photos(user_id)
 
     try:
-        response = requests.get(f'http://localhost:8000/users/{user_id}')
+        response = requests.get(f'{API_URL}/users/{user_id}')
         if response.status_code == 200:
             data = response.json() # это словарь {"data": [id, дата]}
             joined_at = data["data"][1] # ✅ Достаем список, затем второй элемент (дату)
 
-        response = requests.get(f'http://localhost:8000/users/{user_id}/lists')
+        response = requests.get(f'{API_URL}/users/{user_id}/lists')
         lists = response.json()
 
-        response = requests.get(f'http://localhost:8000/users/{user_id}/items')
+        response = requests.get(f'{API_URL}/users/{user_id}/items')
         items = response.json()
     except:
         await message.answer('‼️ <b>бэкенд недоступен</b>, попробуй позже.', parse_mode='HTML')
@@ -702,7 +703,7 @@ async def user_handler(message: Message):
 @dp.message(Command('get_users'))
 async def get_users_handler(message: Message):
     try:
-        response = requests.get('http://localhost:8000/users')
+        response = requests.get(f'{API_URL}/users')
         data = response.json()  # ✅ превращаем в список
         await message.answer(str(data))  # ✅ превращаем в строку
     except requests.ConnectionError:
