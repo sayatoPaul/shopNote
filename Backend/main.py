@@ -10,7 +10,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1] # поднимаемся от
 load_dotenv(PROJECT_ROOT / '.env') # как поднялись к .env путем поднятия (проджект рут) читаем файл в котором токены и тп
 
 # Локально база рядом с этим файлом; в Amvera DATABASE_PATH задаётся как /data/database.db.
-DB_PATH = os.getenv(
+DB_PATH = os.getenv( # мы успешно поднялись к env и оттуда берем наш пуит по API, а от API он нам дает бд создать в /дата
     'DATABASE_PATH', # либо берем заданный параметр от облака (переменная)
     str(Path(__file__).resolve().with_name('database.db')) # в ином случае создаем / берем файл рядом с main.py
 ) 
